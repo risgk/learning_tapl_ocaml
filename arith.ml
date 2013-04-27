@@ -1,4 +1,4 @@
-(* Citing and editing http://www.cis.upenn.edu/~bcpierce/tapl/checkers/arith/ for learning TAPL. *)
+(* Modifying http://www.cis.upenn.edu/~bcpierce/tapl/checkers/arith/ for learning TAPL. *)
 (* TYPES AND PROGRAMMING LANGUAGES by Benjamin C. Pierce Copyright (c)2002 Benjamin C. Pierce *)
 
 type term =
