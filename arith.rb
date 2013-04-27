@@ -44,7 +44,7 @@ class Array
       t[3]
     when t.head == :if
       t1p = t[1].eval1
-      Term.new = [:if,tp,t[2],t[3]]
+      [:if,t1p,t[2],t[3]]
     # TODO
     else
       raise NoRuleApplies
@@ -53,7 +53,7 @@ class Array
 
   def eval
     begin
-      self.eval1
+      self.eval1.eval
     rescue NoRuleApplies
       self
     end
@@ -62,7 +62,11 @@ end
 
 # Test
 printf("test1: %s\n", [:true].eval == [:true])
-printf("test2: %s\n", [:if,[:false],[:true],[:false]].eval == [:false])
-printf("test3: %s\n", [:zero].eval == [:zero])
-printf("test4: %s\n", [:succ,[:pred,[:zero]]].eval == [:succ,[:zero]])
-printf("test5: %s\n", [:izsero,[:pred,[:succ,[:succ,[:zero]]]]].eval == [:false])
+printf("test2: %s\n", [:false].eval == [:false])
+printf("test3: %s\n", [:if,[:true],[:true],[:false]].eval == [:true])
+printf("test4: %s\n", [:if,[:false],[:true],[:false]].eval == [:false])
+printf("test5: %s\n", [:if,[:if,[:true],[:true],[:false]],[:true],[:false]].eval == [:true])
+printf("test6: %s\n", [:if,[:if,[:false],[:true],[:false]],[:true],[:false]].eval == [:false])
+printf("test7: %s\n", [:zero].eval == [:zero])
+printf("test8: %s\n", [:succ,[:pred,[:zero]]].eval == [:succ,[:zero]])
+printf("test9: %s\n", [:izsero,[:pred,[:succ,[:succ,[:zero]]]]].eval == [:false])
