@@ -59,10 +59,11 @@ class Array
   end
 
   def eval
+    t = self
     begin
-      self.eval1.eval
+      t.eval1.eval
     rescue NoRuleApplies
-      self
+      t
     end
   end
 end
