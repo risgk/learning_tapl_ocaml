@@ -47,6 +47,8 @@ class Array
       [:true]
     when t[0] == :iszero && t[1].eval[0] == :succ && t[1].eval[1].isnumericval
       [:false]
+    else
+      t
     end
   end
 end
@@ -63,3 +65,4 @@ printf("test8: %s\n", [:succ,[:pred,[:zero]]].eval == [:succ,[:zero]])
 printf("test9: %s\n", [:iszero,[:succ,[:zero]]].eval == [:false])
 printf("test10: %s\n", [:iszero,[:pred,[:succ,[:zero]]]].eval == [:true])
 printf("test11: %s\n", [:iszero,[:pred,[:succ,[:succ,[:zero]]]]].eval == [:false])
+printf("test12: %s\n", [:iszero,[:true]].eval == [:iszero,[:true]])
