@@ -42,7 +42,7 @@ class Array
     when t[0] == :pred && t[1].eval == [:zero]
       [:zero]
     when t[0] == :pred && t[1].eval[0] == :succ && t[1].eval[1].isnumericval
-      (t[1].eval)[1]
+      t[1].eval[1]
     when t[0] == :iszero && t[1].eval == [:zero]
       [:true]
     when t[0] == :iszero && t[1].eval[0] == :succ && t[1].eval[1].isnumericval
