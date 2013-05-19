@@ -33,11 +33,11 @@ class Array
     case
     when t.isval
       t
-    when t[0] == :if && t[1].eval == [:true]
+    when t[0] == :if && t[1].eval == [:true] && t[2].eval.isval
       t[2].eval
-    when t[0] == :if && t[1].eval == [:false]
+    when t[0] == :if && t[1].eval == [:false] && t[3].eval.isval
       t[3].eval
-    when t[0] == :succ
+    when t[0] == :succ && t[1].eval.isnumericval
       [:succ,t[1].eval]
     when t[0] == :pred && t[1].eval == [:zero]
       [:zero]
@@ -66,3 +66,4 @@ printf("test9: %s\n", [:iszero,[:succ,[:zero]]].eval == [:false])
 printf("test10: %s\n", [:iszero,[:pred,[:succ,[:zero]]]].eval == [:true])
 printf("test11: %s\n", [:iszero,[:pred,[:succ,[:succ,[:zero]]]]].eval == [:false])
 printf("test12: %s\n", [:iszero,[:true]].eval == [:iszero,[:true]])
+printf("test13: %s\n", [:succ,[:true]].eval == [:succ,[:true]])
