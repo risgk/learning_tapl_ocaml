@@ -9,7 +9,7 @@ def isnamebound(ctx, x)
     if y == x
       true
     else
-      isnamebound(rest,x)
+      isnamebound(rest, x)
     end
   end
 end
@@ -24,29 +24,68 @@ end
 
 def index2name(ctx, x)
   if ctx[x].nil?
-    puts "Variable lookup failure"
+    puts "Variable lookup failure!"
     nil
   else
     ctx[x][0]
   end
 end
 
+def ctxlength(ctx)
+  ctx.length
+end
+
 def printtm(ctx, t)
   case
-  when t[0] == :var
+  when t[0] == :abs
     x  = t[1]; t1 = t[2]
     ctxp, xp = pickfreshname(ctx, x)
-    puts "(lambda "; puts xp; puts "."; printtm(ctxp, t1); puts ")"
-  when t[0] == :abs
-    t1 = t[1]; t2 = t[2]
-    puts "("; printtm(ctxp, t1); puts " "; printtm(ctxp, t2); puts ")"
+    "(lambda " + xp + ". " + printtm(ctxp, t1) + ")"
   when t[0] == :app
+    t1 = t[1]; t2 = t[2]
+    "(" + printtm(ctx, t1) + " " + printtm(ctx, t2) + ")"
+  when t[0] == :var
     x  = t[1]; n  = t[2]
     if ctxlength(ctx) == n
-      puts index2name(ctx, x)
+      index2name(ctx, x)
     else
       puts "[bad index]"
     end
+  end
+end
+
+def term_shift(d, t)
+  # todo
+end
+
+def term_subst(j, s, t)
+  # todo
+end
+
+def term_subst_top(s, t)
+  # todo
+end
+
+def isval(ctx, t)
+  case
+  when t[0] == :abs
+    true
+  else
+    false
+  end
+end
+
+class NoRuleApplies < Exception; end
+
+def eval1(ctx, t)
+  # todo
+end
+
+def eval(ctx, t)
+  begin
+    eval(ctx, eval1(ctx, t))
+  rescue NoRuleApplies
+    t
   end
 end
 
@@ -60,3 +99,7 @@ printf "test6: %s\n", pickfreshname([["x", "NameBind"]], "x") == [[["x'", "NameB
 printf "test7: %s\n", index2name([["y", "NameBind"], ["x", "NameBind"]], 0) == "y"
 printf "test8: %s\n", index2name([["y", "NameBind"], ["x", "NameBind"]], 1) == "x"
 printf "test9: %s\n", index2name([["y", "NameBind"], ["x", "NameBind"]], 2) == nil
+printf "test10: %s\n", printtm([["x", "NameBind"]], [:var, 0, 1]) == "x"
+printf "test11: %s\n", printtm([], [:abs, "x", [:var, 0, 1]]) == "(lambda x. x)"
+printf "test12: %s\n", printtm([], [:app, [:abs, "x", [:var, 0, 1]], [:abs, "x", [:var, 0, 1]]]) == "((lambda x. x) (lambda x. x))"
+printf "test13: %s\n", printtm([], [:app, [:abs, "x", [:var, 0, 1]], [:abs, "x", [:app, [:var, 0, 1], [:var, 0, 1]]]]) == "((lambda x. x) (lambda x. (x x)))"
