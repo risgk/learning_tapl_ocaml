@@ -55,7 +55,7 @@ def sprinttm(ctx, t)
 end
 
 def termShift(d, t)
-  def walk(c, t, d)
+  def walkShift(c, t, d)
     case
     when t[0] == :var
       x = t[1]; n = t[2]
@@ -66,17 +66,17 @@ def termShift(d, t)
       end
     when t[0] == :abs
       x = t[1]; t1 = t[2]
-      [:abs, x, walk(c + 1, t1, d)]
+      [:abs, x, walkShift(c + 1, t1, d)]
     when t[0] == :app
       t1 = t[1]; t2 = t[2]
-      [:app, walk(c, t1, d), walk(c, t2, d)]
+      [:app, walkShift(c, t1, d), walkShift(c, t2, d)]
     end
   end
-  walk(0, t, d)
+  walkShift(0, t, d)
 end
 
 def termSubst(j, s, t)
-  def walk(c, t, j, s)
+  def walkSubst(c, t, j, s)
     case
     when t[0] == :var
       x = t[1]; n = t[2]
@@ -87,13 +87,13 @@ def termSubst(j, s, t)
       end
     when t[0] == :abs
       x = t[1]; t1 = t[2]
-      [:abs, x, walk(c + 1, t1, j, s)]
+      [:abs, x, walkSubst(c + 1, t1, j, s)]
     when t[0] == :app
       t1 = t[1]; t2 = t[2]
-      [:app, walk(c, t1, j, s), walk(c, t2, j, s)]
+      [:app, walkSubst(c, t1, j, s), walkSubst(c, t2, j, s)]
     end
   end
-  walk(0, t, j, s)
+  walkSubst(0, t, j, s)
 end
 
 def termSubstTop(s, t)
@@ -121,7 +121,7 @@ def eval1(ctx, t)
     [:app, t[1], t2p]
   when t[0] == :app
     t1p = eval1(ctx, t[1])
-    termSubstTop(t1p. t[2])
+    [:app, t1p, t[2]]
   else
     raise NoRuleApplies
   end
@@ -136,17 +136,27 @@ def eval(ctx, t)
 end
 
 # tests
-printf "test1: %s\n", isnamebound([], "x") == false
-printf "test2: %s\n", isnamebound([["y", "NameBind"]], "x") == false
-printf "test3: %s\n", isnamebound([["x", "NameBind"]], "x") == true
-printf "test4: %s\n", isnamebound([["y", "NameBind"], ["x", "NameBind"]], "x") == true
-printf "test5: %s\n", pickfreshname([], "x") == [[["x", "NameBind"]], "x"]
-printf "test6: %s\n", pickfreshname([["x", "NameBind"]], "x") == [[["x'", "NameBind"], ["x", "NameBind"]], "x'"]
-printf "test7: %s\n", index2name([["y", "NameBind"], ["x", "NameBind"]], 0) == "y"
-printf "test8: %s\n", index2name([["y", "NameBind"], ["x", "NameBind"]], 1) == "x"
-printf "test9: %s\n", index2name([["y", "NameBind"], ["x", "NameBind"]], 2) == nil
-printf "test10: %s\n", sprinttm([["x", "NameBind"]], [:var, 0, 1]) == "x"
-printf "test11: %s\n", sprinttm([], [:abs, "x", [:var, 0, 1]]) == "(lambda x. x)"
-printf "test12: %s\n", sprinttm([], [:app, [:abs, "x", [:var, 0, 1]], [:abs, "x", [:var, 0, 1]]]) == "((lambda x. x) (lambda x. x))"
-printf "test13: %s\n", sprinttm([], [:app, [:abs, "x", [:var, 0, 1]], [:abs, "y", [:app, [:var, 0, 1], [:var, 0, 1]]]]) == "((lambda x. x) (lambda y. (y y)))"
-printf "test14: %s\n", sprinttm([], eval([], [:app, [:abs, "x", [:var, 0, 1]], [:abs, "y", [:app, [:var, 0, 1], [:var, 0, 1]]]])) == "(lambda y. (y y))"
+printf "test1.1: %s\n", isnamebound([], "x") == false
+printf "test1.2: %s\n", isnamebound([["y", "NameBind"]], "x") == false
+printf "test1.3: %s\n", isnamebound([["x", "NameBind"]], "x") == true
+printf "test1.4: %s\n", isnamebound([["y", "NameBind"], ["x", "NameBind"]], "x") == true
+printf "test2.1: %s\n", pickfreshname([], "x") == [[["x", "NameBind"]], "x"]
+printf "test2.2: %s\n", pickfreshname([["x", "NameBind"]], "x") == [[["x'", "NameBind"], ["x", "NameBind"]], "x'"]
+printf "test3.1: %s\n", index2name([["y", "NameBind"], ["x", "NameBind"]], 0) == "y"
+printf "test3.2: %s\n", index2name([["y", "NameBind"], ["x", "NameBind"]], 1) == "x"
+printf "test4.1: %s\n", sprinttm([["x", "NameBind"]], [:var, 0, 1]) == "x"
+printf "test4.2: %s\n", sprinttm([], [:abs, "x", [:var, 0, 1]]) == "(lambda x. x)"
+printf "test4.3: %s\n", sprinttm([], [:app, [:abs, "x", [:var, 0, 1]], [:abs, "x", [:var, 0, 1]]]) == "((lambda x. x) (lambda x. x))"
+printf "test4.4: %s\n", sprinttm([], [:app, [:abs, "x", [:var, 0, 1]], [:abs, "y", [:app, [:var, 0, 1], [:var, 0, 1]]]]) == "((lambda x. x) (lambda y. (y y)))"
+# ((lambda x. x) (lambda y. (y y))) -> (lambda y. (y y))
+# ((lambda x. x) (lambda y. y)) -> (lambda y. y)
+# ((lambda x. (lambda y. x)) (lambda z. z)) -> (lambda y. (lambda z. z))
+# ((lambda x. (lambda x'. x)) (lambda x. x)) -> (lambda x. (lambda x'. x'))
+# (((lambda x. (lambda y. x)) (lambda z. z)) (lambda w. w)) -> (lambda z. z)
+# ((lambda x. x) ((lambda y. y) (lambda z. z))) -> (lambda z. z)
+printf "test5.1: %s\n", sprinttm([], eval([], [:app, [:abs, "x", [:var, 0, 1]], [:abs, "y", [:app, [:var, 0, 1], [:var, 0, 1]]]])) == "(lambda y. (y y))"
+printf "test5.2: %s\n", sprinttm([], eval([], [:app, [:abs, "x", [:var, 0, 1]], [:abs, "y", [:var, 0, 1]]])) == "(lambda y. y)"
+printf "test5.3: %s\n", sprinttm([], eval([], [:app, [:abs, "x", [:abs, "y", [:var, 1, 2]]], [:abs, "z", [:var, 0, 1]]])) == "(lambda y. (lambda z. z))"
+printf "test5.4: %s\n", sprinttm([], eval([], [:app, [:abs, "x", [:abs, "x", [:var, 1, 2]]], [:abs, "x", [:var, 0, 1]]])) == "(lambda x. (lambda x'. x'))"
+printf "test5.5: %s\n", sprinttm([], eval([], [:app, [:app, [:abs, "x", [:abs, "y", [:var, 1, 2]]], [:abs, "z", [:var, 0, 1]]], [:abs, "w", [:var, 0, 1]]])) == "(lambda z. z)"
+printf "test5.6: %s\n", sprinttm([], eval([], [:app, [:abs, "x", [:var, 0, 1]], [:app, [:abs, "y", [:var, 0, 1]], [:abs, "z", [:var, 0, 1]]]])) == "(lambda z. z)"
