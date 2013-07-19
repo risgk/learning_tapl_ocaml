@@ -35,17 +35,17 @@ def ctxlength(ctx)
   ctx.length
 end
 
-def printtm(ctx, t)
+def sprinttm(ctx, t)
   case
   when t[0] == :abs
-    x  = t[1]; t1 = t[2]
+    x = t[1]; t1 = t[2]
     ctxp, xp = pickfreshname(ctx, x)
-    "(lambda " + xp + ". " + printtm(ctxp, t1) + ")"
+    "(lambda " + xp + ". " + sprinttm(ctxp, t1) + ")"
   when t[0] == :app
     t1 = t[1]; t2 = t[2]
-    "(" + printtm(ctx, t1) + " " + printtm(ctx, t2) + ")"
+    "(" + sprinttm(ctx, t1) + " " + sprinttm(ctx, t2) + ")"
   when t[0] == :var
-    x  = t[1]; n  = t[2]
+    x = t[1]; n = t[2]
     if ctxlength(ctx) == n
       index2name(ctx, x)
     else
@@ -54,16 +54,50 @@ def printtm(ctx, t)
   end
 end
 
-def term_shift(d, t)
-  # todo
+def termShift(d, t)
+  def walk(c, t, d)
+    case
+    when t[0] == :var
+      x = t[1]; n = t[2]
+      if x >= c
+        [:var, x + d, n + d]
+      else
+        [:var, x, n + d]
+      end
+    when t[0] == :abs
+      x = t[1]; t1 = t[2]
+      [:abs, x, walk(c + 1, t1, d)]
+    when t[0] == :app
+      t1 = t[1]; t2 = t[2]
+      [:app, walk(c, t1, d), walk(c, t2, d)]
+    end
+  end
+  walk(0, t, d)
 end
 
-def term_subst(j, s, t)
-  # todo
+def termSubst(j, s, t)
+  def walk(c, t, j, s)
+    case
+    when t[0] == :var
+      x = t[1]; n = t[2]
+      if x == j + c
+        termShift(c, s)
+      else
+        [:var, x, n]
+      end
+    when t[0] == :abs
+      x = t[1]; t1 = t[2]
+      [:abs, x, walk(c + 1, t1, j, s)]
+    when t[0] == :app
+      t1 = t[1]; t2 = t[2]
+      [:app, walk(c, t1, j, s), walk(c, t2, j, s)]
+    end
+  end
+  walk(0, t, j, s)
 end
 
-def term_subst_top(s, t)
-  # todo
+def termSubstTop(s, t)
+  termShift(-1, (termSubst(0, (termShift(1, s)), t)))
 end
 
 def isval(ctx, t)
@@ -78,7 +112,19 @@ end
 class NoRuleApplies < Exception; end
 
 def eval1(ctx, t)
-  # todo
+  # p sprinttm(ctx, t)
+  case
+  when t[0] == :app && t[1][0] == :abs && isval(ctx, t[2])
+    termSubstTop(t[2], t[1][2])
+  when t[0] == :app && isval(ctx, t[1])
+    t2p = eval1(ctx, t[2])
+    [:app, t[1], t2p]
+  when t[0] == :app
+    t1p = eval1(ctx, t[1])
+    termSubstTop(t1p. t[2])
+  else
+    raise NoRuleApplies
+  end
 end
 
 def eval(ctx, t)
@@ -99,7 +145,8 @@ printf "test6: %s\n", pickfreshname([["x", "NameBind"]], "x") == [[["x'", "NameB
 printf "test7: %s\n", index2name([["y", "NameBind"], ["x", "NameBind"]], 0) == "y"
 printf "test8: %s\n", index2name([["y", "NameBind"], ["x", "NameBind"]], 1) == "x"
 printf "test9: %s\n", index2name([["y", "NameBind"], ["x", "NameBind"]], 2) == nil
-printf "test10: %s\n", printtm([["x", "NameBind"]], [:var, 0, 1]) == "x"
-printf "test11: %s\n", printtm([], [:abs, "x", [:var, 0, 1]]) == "(lambda x. x)"
-printf "test12: %s\n", printtm([], [:app, [:abs, "x", [:var, 0, 1]], [:abs, "x", [:var, 0, 1]]]) == "((lambda x. x) (lambda x. x))"
-printf "test13: %s\n", printtm([], [:app, [:abs, "x", [:var, 0, 1]], [:abs, "x", [:app, [:var, 0, 1], [:var, 0, 1]]]]) == "((lambda x. x) (lambda x. (x x)))"
+printf "test10: %s\n", sprinttm([["x", "NameBind"]], [:var, 0, 1]) == "x"
+printf "test11: %s\n", sprinttm([], [:abs, "x", [:var, 0, 1]]) == "(lambda x. x)"
+printf "test12: %s\n", sprinttm([], [:app, [:abs, "x", [:var, 0, 1]], [:abs, "x", [:var, 0, 1]]]) == "((lambda x. x) (lambda x. x))"
+printf "test13: %s\n", sprinttm([], [:app, [:abs, "x", [:var, 0, 1]], [:abs, "y", [:app, [:var, 0, 1], [:var, 0, 1]]]]) == "((lambda x. x) (lambda y. (y y)))"
+printf "test14: %s\n", sprinttm([], eval([], [:app, [:abs, "x", [:var, 0, 1]], [:abs, "y", [:app, [:var, 0, 1], [:var, 0, 1]]]])) == "(lambda y. (y y))"
