@@ -5,42 +5,8 @@
 
 # Context management
 
-def ctxlength(ctx)
-  ctx.length
-end
-
 def addbinding(ctx, x, bind)
   [[x, bind]] + ctx
-end
-
-def isnamebound(ctx, x)
-  if ctx[0].nil?
-    false
-  else
-    y = ctx[0][0]; rest = ctx.drop(1)
-    if y == x
-      true
-    else
-      isnamebound(rest, x)
-    end
-  end
-end
-
-def pickfreshname(ctx, x)
-  if isnamebound(ctx, x)
-    pickfreshname(ctx, x + "'")
-  else
-    [[[x, "NameBind"]] + ctx, x]
-  end
-end
-
-def index2name(ctx, x)
-  if ctx[x].nil?
-    puts "Variable lookup failure!"
-    nil
-  else
-    ctx[x][0]
-  end
 end
 
 # Shifting
@@ -48,20 +14,26 @@ end
 def termShift(d, t)
   def walkShift(c, t, d)
     case
-    when t[0] == :var
+    when t[0] == :TmVar
       x = t[1]; n = t[2]
       if x >= c
-        [:var, x + d, n + d]
+        [:TmVar, x + d, n + d]
       else
-        [:var, x, n + d]
+        [:TmVar, x, n + d]
       end
-    when t[0] == :abs
-      # todo: ty
-      x = t[1]; t1 = t[2]
-      [:abs, x, walkShift(c + 1, t1, d)]
-    when t[0] == :app
+    when t[0] == :TmAbs
+      x = t[1]; tyT1 = t[2]; t2 = t[3]
+      [:TmAbs, x, tyT1, walkShift(c + 1, t2, d)]
+    when t[0] == :TmApp
       t1 = t[1]; t2 = t[2]
-      [:app, walkShift(c, t1, d), walkShift(c, t2, d)]
+      [:TmApp, walkShift(c, t1, d), walkShift(c, t2, d)]
+    when t[0] == :TmTrue
+      t
+    when t[0] == :TmFalse
+      t
+    when t[0] == :TmIf
+      t1 = t[1]; t2 = t[2]; t3 = t[3]
+      [:TmIf, walkShift(c, t1, d), walkShift(c, t2, d), walkShift(c, t3, d)]
     end
   end
   walkShift(0, t, d)
@@ -72,20 +44,26 @@ end
 def termSubst(j, s, t)
   def walkSubst(c, t, j, s)
     case
-    when t[0] == :var
+    when t[0] == :TmVar
       x = t[1]; n = t[2]
       if x == j + c
         termShift(c, s)
       else
-        [:var, x, n]
+        [:TmVar, x, n]
       end
-    when t[0] == :abs
-      # todo: ty
-      x = t[1]; t1 = t[2]
-      [:abs, x, walkSubst(c + 1, t1, j, s)]
-    when t[0] == :app
+    when t[0] == :TmAbs
+      x = t[1]; tyT1 = t[2]; t2 = t[3]
+      [:TmAbs, x, tyT1, walkSubst(c + 1, t2, j, s)]
+    when t[0] == :TmApp
       t1 = t[1]; t2 = t[2]
-      [:app, walkSubst(c, t1, j, s), walkSubst(c, t2, j, s)]
+      [:TmApp, walkSubst(c, t1, j, s), walkSubst(c, t2, j, s)]
+    when t[0] == :TmTrue
+      t
+    when t[0] == :TmFalse
+      t
+    when t[0] == :TmIf
+      t1 = t[1]; t2 = t[2]; t3 = t[3]
+      [:TmIf, walkSubst(c, t1, j, s), walkSubst(c, t2, j, s), walkSubst(c, t3, j, s)]
     end
   end
   walkSubst(0, t, j, s)
@@ -98,88 +76,32 @@ end
 # Context management (continued)
 
 def getbinding(ctx, i)
-=begin
- let getTypeFromContext fi ctx i =
-   match getbinding fi ctx i with
-       VarBind(tyT) -> tyT
-     | _ -> error fi 
-       ("getTypeFromContext: Wrong kind of binding for variable " 
-        ^ (index2name fi ctx i)) 
-=end
-end
-
-def getTypeFromContext(ctx, i)
-=begin
-let rec getbinding fi ctx i =
-  try
-    let (_,bind) = List.nth ctx i in
-    bind 
-  with Failure _ ->
-    let msg =
-      Printf.sprintf "Variable lookup failure: offset: %d, ctx size: %d" in
-    error fi (msg i (List.length ctx))
-=end
-end
-
-# Printing
-
-def sprintty(tyT)
-=begin
-let rec printty_Type outer tyT = match tyT with
-      tyT -> printty_ArrowType outer tyT
-
-and printty_ArrowType outer  tyT = match tyT with 
-    TyArr(tyT1,tyT2) ->
-      obox0(); 
-      printty_AType false tyT1;
-      if outer then pr " ";
-      pr "->";
-      if outer then print_space() else break();
-      printty_ArrowType outer tyT2;
-      cbox()
-  | tyT -> printty_AType outer tyT
-
-and printty_AType outer tyT = match tyT with
-    TyBool -> pr "Bool"
-  | tyT -> pr "("; printty_Type outer tyT; pr ")"
-
-let printty tyT = printty_Type true tyT 
-=end
-end
-
-def sprinttm(ctx, t)
-  case
-  when t[0] == :abs
-    # todo: ty
-    x = t[1]; t1 = t[2]
-    ctxp, xp = pickfreshname(ctx, x)
-    "(lambda " + xp + ". " + sprinttm(ctxp, t1) + ")"
-  when t[0] == :app
-    t1 = t[1]; t2 = t[2]
-    "(" + sprinttm(ctx, t1) + " " + sprinttm(ctx, t2) + ")"
-  when t[0] == :var
-    x = t[1]; n = t[2]
-    if ctxlength(ctx) == n
-      index2name(ctx, x)
-    else
-      puts "[bad index]"
-    end
+  if i < ctx.length
+    ctx[i][1]
+  else
+    raise "Variable lookup failure"
   end
 end
 
-def sprbinding(ctx, b)
-=begin
-let prbinding ctx b = match b with
-    NameBind -> ()
-  | VarBind(tyT) -> pr ": "; printty tyT 
-=end
+def getTypeFromContext(ctx, i)
+  b = getbinding(ctx, i)
+  case
+  when b[0] == :VarBind
+    tyT = b[1]
+  else
+    raise "Wrong kind of binding for variable"
+  end
 end
 
 # ------------------------   EVALUATION  ------------------------
 
 def isval(ctx, t)
   case
-  when t[0] == :abs
+  when t[0] == :TmTrue
+    true
+  when t[0] == :TmFalse
+    true
+  when t[0] == :TmAbs
     true
   else
     false
@@ -189,38 +111,24 @@ end
 class NoRuleApplies < Exception; end
 
 def eval1(ctx, t)
-  # p sprinttm(ctx, t)
   case
-  # todo: ty
-  when t[0] == :app && t[1][0] == :abs && isval(ctx, t[2])
-    termSubstTop(t[2], t[1][2])
-  when t[0] == :app && isval(ctx, t[1])
+  when t[0] == :TmApp && t[1][0] == :TmAbs && isval(ctx, t[2])
+    termSubstTop(t[2], t[1][3])
+  when t[0] == :TmApp && isval(ctx, t[1])
     t2p = eval1(ctx, t[2])
-    [:app, t[1], t2p]
-  when t[0] == :app
+    [:TmApp, t[1], t2p]
+  when t[0] == :TmApp
     t1p = eval1(ctx, t[1])
-    [:app, t1p, t[2]]
+    [:TmApp, t1p, t[2]]
+  when t[0] == :TmIf && t[1] == [:TmTrue]
+    t[2]
+  when t[0] == :TmIf && t[1] == [:TmFalse]
+    t[3]
+  when t[0] == :TmIf
+    [:TmIf, eval1(ctx, t[1]), t[2], t[3]]
   else
     raise NoRuleApplies
   end
-=begin
-let rec eval1 ctx t = match t with
-    TmApp(fi,TmAbs(_,x,tyT11,t12),v2) when isval ctx v2 ->
-      termSubstTop v2 t12
-  | TmApp(fi,v1,t2) when isval ctx v1 ->
-      let t2' = eval1 ctx t2 in
-      TmApp(fi, v1, t2')
-  | TmApp(fi,t1,t2) ->
-      let t1' = eval1 ctx t1 in
-      TmApp(fi, t1', t2)
-  | TmIf(_,TmTrue(_),t2,t3) ->
-      t2
-  | TmIf(_,TmFalse(_),t2,t3) ->
-      t3
-  | TmIf(fi,t1,t2,t3) ->
-      let t1' = eval1 ctx t1 in
-      TmIf(fi, t1', t2, t3)
-=end
 end
 
 def eval(ctx, t)
@@ -234,46 +142,75 @@ end
 # ------------------------   TYPING  ------------------------
 
 def typeof(ctx, t)
-=begin
-let rec typeof ctx t =
-  match t with
-    TmVar(fi,i,_) -> getTypeFromContext fi ctx i
-  | TmAbs(fi,x,tyT1,t2) ->
-      let ctx' = addbinding ctx x (VarBind(tyT1)) in
-      let tyT2 = typeof ctx' t2 in
-      TyArr(tyT1, tyT2)
-  | TmApp(fi,t1,t2) ->
-      let tyT1 = typeof ctx t1 in
-      let tyT2 = typeof ctx t2 in
-      (match tyT1 with
-          TyArr(tyT11,tyT12) ->
-            if (=) tyT2 tyT11 then tyT12
-            else error fi "parameter type mismatch"
-        | _ -> error fi "arrow type expected")
-  | TmTrue(fi) -> 
-      TyBool
-  | TmFalse(fi) -> 
-      TyBool
-  | TmIf(fi,t1,t2,t3) ->
-     if (=) (typeof ctx t1) TyBool then
-       let tyT2 = typeof ctx t2 in
-       if (=) tyT2 (typeof ctx t3) then tyT2
-       else error fi "arms of conditional have different types"
-     else error fi "guard of conditional not a boolean"
-=end
+  case
+  when t[0] == :TmVar
+    i = t[1]
+    getTypeFromContext(ctx, i)
+  when t[0] == :TmAbs
+    x = t[1]; tyT1 = t[2]; t2 = t[3]
+    ctxp = addbinding(ctx, x, [:VarBind, tyT1])
+    tyT2 = typeof(ctxp, t2)
+    [:TyArr, tyT1, tyT2]
+  when t[0] == :TmApp
+    t1 = t[1]; t2 = t[2]
+    tyT1 = typeof(ctx, t1)
+    tyT2 = typeof(ctx, t2)
+    case
+    when tyT1[0] == :TyArr
+      tyT11 = tyT1[1]; tyT12 = tyT1[2]
+      if tyT2 == tyT11
+        tyT12
+      else
+        raise "parameter type mismatch"
+      end
+    else
+      raise "arrow type expected"
+    end
+  when t[0] == :TmTrue
+    [:TyBool]
+  when t[0] == :TmFalse
+    [:TyBool]
+  when t[0] == :TmIf
+    t1 = t[1]; t2 = t[2]; t3 = t[3]
+    if typeof(ctx, t1) == [:TyBool]
+      tyT2 = typeof(ctx, t2)
+      if tyT2 == typeof(ctx, t3)
+        tyT2
+      else
+        raise "arms of conditional have different types"
+      end
+    else
+      raise "guard of conditional not a boolean"
+    end
+  end
 end
 
-# ------------------------   MAIN  ------------------------
+# ------------------------   TEST  ------------------------
 
-def process(ctx, t)
-  # todo
+if ARGV[0] == "test"
+  printf "test1.1: %s\n", getbinding([[:x, [:VarBind, [:TyBool]]]], 0) == [:VarBind, [:TyBool]]
+  printf "test1.2: %s\n", getTypeFromContext([[:x, [:VarBind, [:TyBool]]]], 0) == [:TyBool]
+
+  # eval lambda x:Bool. x;
+  t = [:TmAbs, "x", [:TyBool], [:TmVar, 0, 1]]
+  printf "test2.1: %s\n", typeof([], t) == [:TyArr, [:TyBool], [:TyBool]]
+  printf "test2.2: %s\n", eval(  [], t) == [:TmAbs, "x", [:TyBool], [:TmVar, 0, 1]]
+
+  # eval (lambda x:Bool. if x then false else true)
+  t = [:TmAbs, "x", [:TyBool], [:TmIf, [:TmVar, 0, 1], [:TmFalse], [:TmTrue]]]
+  printf "test3.1: %s\n", typeof([], t) == [:TyArr, [:TyBool], [:TyBool]]
+  printf "test3.2: %s\n", eval(  [], t) == t
+
+  # eval (lambda x:Bool->Bool. if x false then true else false)
+  t = [:TmAbs, "x", [:TyArr, [:TyBool], [:TyBool]], [:TmIf, [:TmApp, [:TmVar, 0, 1], [:TmFalse]], [:TmTrue], [:TmFalse]]]
+  printf "test4.1: %s\n", typeof([], t) == [:TyArr, [:TyArr, [:TyBool], [:TyBool]], [:TyBool]]
+  printf "test4.2: %s\n", eval(  [], t) == t
+
+  # eval (lambda x:Bool->Bool. if x false then true else false) (lambda x:Bool. if x then false else true)
+  t = [:TmApp, [:TmAbs, "x", [:TyArr, [:TyBool], [:TyBool]], [:TmIf, [:TmApp, [:TmVar, 0, 1], [:TmFalse]], [:TmTrue], [:TmFalse]]], [:TmAbs, "x", [:TyBool], [:TmIf, [:TmVar, 0, 1], [:TmFalse], [:TmTrue]]]]
+  printf "test5.1: %s\n", typeof([], t) == [:TyBool]
+  printf "test5.2: %s\n", eval(  [], t) == [:TmTrue]
+else
+  # eval term from stdin
+  puts eval([], Kernel.eval(gets())).to_s
 end
-
-# ------------------------   TESTS  ------------------------
-
-printf "test0: %s\n", true == true
-=begin
- lambda x:Bool. x;
- (lambda x:Bool->Bool. if x false then true else false) 
-   (lambda x:Bool. if x then false else true); 
-=end
